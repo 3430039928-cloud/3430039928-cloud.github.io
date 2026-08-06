@@ -1,9 +1,83 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh‑CN">
+<head>
+<meta charset="UTF‑8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>我的私人小站</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family: "Microsoft Yahei",sans‑serif;}
+/* 顶部深色导航栏，复刻网站深色头部 */
+header{
+    background:#222;
+    padding:18px 8%;
+}
+header a{
+    color:#ffffff;
+    text-decoration:none;
+    margin‑right:24px;
+}
+/* 居中容器 */
+.container{
+    max-width:800px;
+    margin:30px auto;
+    padding:0 20px;
+}
+.box{
+    border:1px #ddd solid;
+    border-radius:6px;
+    padding:20px;
+}
+.item{
+    padding:16px 0;
+    border-bottom:1px solid #dddddd;
+}
+.tag{
+    background:#b88686;
+    color:white;
+    font-size:12px;
+    padding:3px 8px;
+    border-radius:4px;
+    margin-right:8px;
+}
+.right‑info{
+    float:right;
+    color:#666;
+    font-size:14px;
+}
+footer{
+    max-width:800px;
+    margin:40px auto 20px;
+    text-align:center;
+    font-size:13px;
+    color:#777;
+}
+</style>
+</head>
 <body>
-    <h1>我的个人小博客</h1>
-    <a href="movie.html">
-        <button>书影音</button>
-    </a>
+<header>
+    <a href="index.html">我的主页</a>
+    <a href="movie.html">书影音记录</a>
+    <a href="diary.html">日常随笔</a>
+</header>
+
+<div class="container">
+    <div class="box">
+        <h3>近期记录</h3>
+        <div class="item">
+            <span class="tag">生活</span>
+            <a>今天研究搭建个人网页</a>
+            <span class="right‑info">日常碎碎念</span>
+        </div>
+        <div class="item">
+            <span class="tag">观影</span>
+            <a>记下最近看过的剧集</a>
+            <span class="right‑info">书影音板块</span>
+        </div>
+    </div>
+</div>
+
+<footer>
+仅供自己记录日常、心情、观影随笔
+</footer>
 </body>
 </html>
