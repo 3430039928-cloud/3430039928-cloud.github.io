@@ -1,12 +1,11 @@
 /* =========================================================
-   cloud.js — 统一数据层 + 登录（邮箱+密码）
-   · 已登录：数据读写 Supabase 云端（跨设备同步，仅本人可见）
-   · 未登录：自动退回 localStorage（保持"打开即用"）
-   · 首次登录且云端为空时，会把本机已有数据自动迁移上云
+   cloud.js — 共享云端数据层（无需登录）
+   · 所有设备 / 所有人共用同一份数据：电脑、手机、朋友打开都是同一份
+   · 数据存到 Supabase 公共表 items；网络不通时自动退回本机
+   · 首次使用且云端为空、本机有旧数据时，自动把本机数据搬到云端
    页面用法：
-     App.loadList(kind, seed?)  -> Promise<data>
-     App.saveList(kind, data)   -> Promise
-     App.login(email, pw) / App.signup(email, pw) / App.logout()
+     App.loadList(kind, seed)  -> Promise<data>
+     App.saveList(kind, data)  -> Promise
    ========================================================= */
 (function (global) {
   var SUPABASE_URL = 'https://gkzlvvchjhiiekjjuqxh.supabase.co';
@@ -14,9 +13,7 @@
 
   var sb = null;
   try { sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON); }
-  catch (e) { console.warn('Supabase 初始化失败，将仅使用本机存储：', e); }
-
-  var currentUser = null;
+  catch (e) { console.warn('Supabase 初始化失败，仅用本机：', e); }
 
   // 各功能对应的本地兜底 key（与旧版一致，迁移时用）
   var LOCAL_KEYS = {
@@ -30,172 +27,42 @@
   function localGet(kind) { try { return JSON.parse(localStorage.getItem(lk(kind))); } catch (e) { return null; } }
   function localSet(kind, v) { try { localStorage.setItem(lk(kind), JSON.stringify(v)); } catch (e) {} }
 
-  function getUser() { return currentUser; }
-
-  async function ensureSession() {
-    if (currentUser) return currentUser;
-    if (!sb) return null;
-    try {
-      var r = await sb.auth.getSession();
-      currentUser = (r.data && r.data.session) ? r.data.session.user : null;
-    } catch (e) { currentUser = null; }
-    return currentUser;
-  }
-
-  // 读：登录→云端；未登录→本机（首次访问且给了 seed 则写入本机）
+  // 读：优先云端；云端无记录且本机有旧数据则迁移上云；都不在则用 seed
   async function loadList(kind, seed) {
-    var u = await ensureSession();
-    if (!u) {
-      var local = localGet(kind);
-      if (local == null && seed !== undefined) { localSet(kind, seed); return seed; }
-      return local;
+    if (sb) {
+      try {
+        var res = await sb.from('items').select('data').eq('kind', kind).maybeSingle();
+        if (res.error) throw res.error;
+        if (res.data) return res.data.data;                 // 云端有（哪怕是空）就用云端
+        var local = localGet(kind);
+        if (local != null) { await saveList(kind, local); return local; }  // 首次：本机旧数据搬上云
+        return (seed !== undefined) ? seed : null;
+      } catch (e) { console.error(e); }
     }
-    try {
-      var res = await sb.from('items').select('data')
-        .eq('user_id', u.id).eq('kind', kind).maybeSingle();
-      if (res.error) { console.error(res.error); return localGet(kind); }
-      if (!res.data) {
-        var l = localGet(kind);
-        if (l != null) { await saveList(kind, l); }   // 本机数据迁移上云
-        return l;
-      }
-      return res.data.data;
-    } catch (e) { return localGet(kind); }
+    // 云端不可用 → 退回本机
+    var l2 = localGet(kind);
+    if (l2 == null && seed !== undefined) { localSet(kind, seed); return seed; }
+    return l2;
   }
 
-  // 写：登录→云端 upsert；未登录→本机
+  // 写：优先云端 upsert（按 kind 覆盖）；失败则存本机并提示
   async function saveList(kind, val) {
-    var u = await ensureSession();
-    if (!u) { localSet(kind, val); return; }
-    try {
-      var res = await sb.from('items').upsert(
-        { user_id: u.id, kind: kind, data: val },
-        { onConflict: 'user_id,kind' }
-      );
-      if (res.error) {
-        console.error(res.error);
-        localSet(kind, val);
-        if (global.App && App.toast) App.toast('云端保存失败，已暂存本机', 'err');
-      }
-    } catch (e) { localSet(kind, val); }
-  }
-
-  async function signup(email, pw) {
-    if (!sb) return { error: { message: 'Supabase 未初始化' } };
-    return await sb.auth.signUp({ email: email, password: pw });
-  }
-  async function login(email, pw) {
-    if (!sb) return { error: { message: 'Supabase 未初始化' } };
-    var r = await sb.auth.signInWithPassword({ email: email, password: pw });
-    if (r.data && r.data.user) currentUser = r.data.user;
-    return r;
-  }
-  async function logout() {
-    if (!sb) { currentUser = null; return; }
-    await sb.auth.signOut();
-    currentUser = null;
-  }
-
-  /* ---------------- 登录 UI ---------------- */
-  function shortEmail(e) { return (e || '').split('@')[0]; }
-
-  function refreshBtn() {
-    var btn = document.getElementById('authBtn');
-    if (!btn) return;
-    if (currentUser) {
-      btn.textContent = '退出 · ' + shortEmail(currentUser.email);
-      btn.classList.add('is-user');
-      btn.title = '点击退出登录';
-    } else {
-      btn.textContent = '登录';
-      btn.classList.remove('is-user');
-      btn.title = '登录后数据存云端';
+    if (sb) {
+      try {
+        var res = await sb.from('items').upsert(
+          { kind: kind, data: val, updated_at: new Date().toISOString() },
+          { onConflict: 'kind' }
+        );
+        if (res.error) throw res.error;
+        localSet(kind, val);   // 同时缓存到本机，离线也能看
+        return;
+      } catch (e) { console.error(e); }
     }
-  }
-
-  function buildModal() {
-    if (document.getElementById('authModal')) return;
-    var m = document.createElement('div');
-    m.id = 'authModal';
-    m.className = 'auth-modal';
-    m.innerHTML =
-      '<div class="auth-box">' +
-        '<button class="auth-close" id="authClose" type="button" aria-label="关闭">×</button>' +
-        '<div class="auth-tabs">' +
-          '<button class="auth-tab active" data-tab="login" type="button">登录</button>' +
-          '<button class="auth-tab" data-tab="signup" type="button">注册</button>' +
-        '</div>' +
-        '<input type="email" id="authEmail" placeholder="你的邮箱（即账号）" autocomplete="username">' +
-        '<input type="password" id="authPw" placeholder="密码（至少 6 位）" autocomplete="current-password">' +
-        '<div class="auth-err" id="authErr"></div>' +
-        '<button class="btn btn-primary" id="authSubmit" type="button">登录</button>' +
-        '<div class="auth-hint">数据存在云端、仅你本人可见；未登录时自动存本机。</div>' +
-      '</div>';
-    document.body.appendChild(m);
-    m.addEventListener('click', function (e) { if (e.target === m) closeModal(); });
-    document.getElementById('authClose').addEventListener('click', closeModal);
-    m.querySelectorAll('.auth-tab').forEach(function (t) {
-      t.addEventListener('click', function () {
-        m.querySelectorAll('.auth-tab').forEach(function (x) { x.classList.remove('active'); });
-        t.classList.add('active');
-        document.getElementById('authSubmit').textContent = (t.dataset.tab === 'signup') ? '注册' : '登录';
-        document.getElementById('authErr').textContent = '';
-      });
-    });
-    document.getElementById('authSubmit').addEventListener('click', submit);
-  }
-  function openModal() { buildModal(); var m = document.getElementById('authModal'); if (m) m.classList.add('open'); }
-  function closeModal() { var m = document.getElementById('authModal'); if (m) m.classList.remove('open'); }
-
-  async function submit() {
-    var email = document.getElementById('authEmail').value.trim();
-    var pw = document.getElementById('authPw').value;
-    var errEl = document.getElementById('authErr');
-    var isSignup = document.querySelector('.auth-tab.active').dataset.tab === 'signup';
-    errEl.textContent = '';
-    if (!email || !pw) { errEl.textContent = '邮箱和密码都要填'; return; }
-    if (pw.length < 6) { errEl.textContent = '密码至少 6 位'; return; }
-    var submitBtn = document.getElementById('authSubmit');
-    submitBtn.disabled = true;
-    var r = isSignup ? await signup(email, pw) : await login(email, pw);
-    submitBtn.disabled = false;
-    if (r.error) {
-      var msg = r.error.message || '出错了，请重试';
-      if (isSignup && /already registered|user already exists/i.test(msg)) msg = '这个邮箱已注册，去「登录」即可。';
-      errEl.textContent = msg;
-      return;
-    }
-    if (isSignup && r.data && !r.data.session) {
-      errEl.textContent = '注册成功，但还需确认邮箱才能登录（去 Supabase 后台关掉 Confirm email 即可免确认）。';
-      return;
-    }
-    closeModal();
-    location.reload();   // 重新加载以拉取云端数据
-  }
-
-  function initUI() {
-    if (!sb) { refreshBtn(); return; }
-    sb.auth.onAuthStateChange(function (event, session) {
-      currentUser = session ? session.user : null;
-      refreshBtn();
-    });
-    var btn = document.getElementById('authBtn');
-    if (btn) btn.addEventListener('click', function () {
-      if (currentUser) { logout().then(function () { location.reload(); }); }
-      else { openModal(); }
-    });
-    ensureSession().then(refreshBtn);
+    localSet(kind, val);
+    if (sb && global.App && App.toast) App.toast('云端保存失败，已暂存本机', 'err');
   }
 
   global.App = global.App || {};
   global.App.loadList = loadList;
   global.App.saveList = saveList;
-  global.App.login = login;
-  global.App.signup = signup;
-  global.App.logout = logout;
-  global.App.getUser = getUser;
-  global.App.initCloudUI = initUI;
-
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initUI);
-  else initUI();
 })(window);
