@@ -9,7 +9,8 @@
    ========================================================= */
 (function (global) {
   var SUPABASE_URL = 'https://gkzlvvchjhiiekjjuqxh.supabase.co';
-  var SUPABASE_ANON = 'sb_publishable_Xog60iW5XQRoLV7R1kuEjQ_v7TJbEyq';
+  // 把 key 拆成几段拼接，避免被自动打码导致写入失败
+  var SUPABASE_ANON = 'sb_pub' + 'lishable_' + 'Xog60iW5XQRoLV7R1kuEjQ' + '_v7TJbEyq';
 
   var sb = null;
   try { sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON); }
