@@ -5,12 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>生活随笔｜我的私人小站</title>
   <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
   <main class="container">
     <div class="page-head">
       <h1>生活随笔</h1>
-      <p class="sub">三餐、买菜日常、琐碎心事 —— 写在本地，只有这台设备能看到</p>
+      <p class="sub">三餐、买菜日常、琐碎心事 —— 登录后存云端、跨设备同步；未登录存本机</p>
     </div>
 
     <!-- 新增一篇 -->
@@ -28,30 +29,27 @@
 
   <script src="app.js"></script>
   <script src="site.js"></script>
+  <script src="cloud.js"></script>
   <script>
   (function () {
-    var KEY = 'myblog-daily-v1';
+    var KIND = 'daily';
     var seed = [
       { id: App.uid(), title: '08 月 07 日 日常记录', body: '可以写下做饭、买菜、上班心情、放上食物截图之类的生活碎片。这条是示例，点右下角「删除」即可去掉。', created_at: '2026-08-07T09:00:00' }
     ];
 
-    function load() { return App.loadStore(KEY, null); }
-    function save(list) { App.saveStore(KEY, list); }
-    function ensureSeed() {
-      if (load() === null) { save(seed); return seed; }
-      return load();
-    }
+    var list = [];
+    function save(l) { App.saveList(KIND, l); }
 
     function render() {
-      var list = (load() || []).slice().sort(function (a, b) {
+      var box = App.$('list');
+      var sorted = list.slice().sort(function (a, b) {
         return new Date(b.created_at) - new Date(a.created_at);
       });
-      var box = App.$('list');
-      if (!list.length) {
+      if (!sorted.length) {
         box.innerHTML = '<div class="empty">还没有随笔，在上方写第一篇吧。</div>';
         return;
       }
-      box.innerHTML = list.map(function (r) {
+      box.innerHTML = sorted.map(function (r) {
         return '<article class="item">' +
           '<div class="head"><h3>' + App.escapeHtml(r.title || '（无标题）') + '</h3>' +
           '<span class="when">' + App.escapeHtml(App.fmtDate(r.created_at)) + '</span></div>' +
@@ -65,7 +63,6 @@
       var title = App.$('titleInput').value.trim();
       var body = App.$('bodyInput').value.trim();
       if (!title && !body) { App.toast('标题和内容都空着呢', 'err'); return; }
-      var list = load() || [];
       list.push({ id: App.uid(), title: title, body: body, created_at: new Date().toISOString() });
       save(list);
       App.$('titleInput').value = '';
@@ -77,13 +74,13 @@
     App.$('list').addEventListener('click', function (e) {
       var id = e.target.getAttribute('data-del');
       if (!id) return;
-      save((load() || []).filter(function (r) { return r.id !== id; }));
+      list = list.filter(function (r) { return r.id !== id; });
+      save(list);
       render();
       App.toast('已删除');
     });
 
-    ensureSeed();
-    render();
+    App.loadList(KIND, seed).then(function (d) { list = d || []; render(); });
   })();
   </script>
 </body>

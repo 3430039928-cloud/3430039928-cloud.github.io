@@ -5,12 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>影｜我的私人小站</title>
   <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
   <main class="container">
     <div class="page-head">
       <h1>观影相册</h1>
-      <p class="sub">海报、评分与随手记下的感受 —— 写在本地，只有这台设备能看到</p>
+      <p class="sub">海报、评分与随手记下的感受 —— 登录后存云端、跨设备同步；未登录存本机</p>
     </div>
 
     <div class="add-area">
@@ -36,27 +37,26 @@
 
   <script src="app.js"></script>
   <script src="site.js"></script>
+  <script src="cloud.js"></script>
   <script>
   (function () {
-    var KEY = 'myblog-movies-v1';
+    var KIND = 'movie';
     var seed = [
       { id: App.uid(), name: "Howl's Moving Castle", info: '2026-08-07｜动画', img: 'images/howl049.jpg', created_at: '2026-08-07T12:00:00' }
     ];
-
-    function load() { return App.loadStore(KEY, null); }
-    function save(list) { App.saveStore(KEY, list); }
-    function ensureSeed() { if (load() === null) { save(seed); } }
+    var list = [];
+    function save(l) { App.saveList(KIND, l); }
 
     function render() {
-      var list = (load() || []).slice().sort(function (a, b) {
+      var box = App.$('grid');
+      var sorted = list.slice().sort(function (a, b) {
         return new Date(b.created_at) - new Date(a.created_at);
       });
-      var box = App.$('grid');
-      if (!list.length) {
+      if (!sorted.length) {
         box.innerHTML = '<div class="empty" style="grid-column:1/-1">还没有影片，在上方加第一部吧。</div>';
         return;
       }
-      box.innerHTML = list.map(function (r) {
+      box.innerHTML = sorted.map(function (r) {
         var poster = r.img
           ? '<img class="poster" src="' + App.escapeHtml(r.img) + '" alt="' + App.escapeHtml(r.name) + '">'
           : '<div class="poster" style="display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px">无海报</div>';
@@ -107,7 +107,6 @@
       var name = App.$('nameInput').value.trim();
       var info = App.$('infoInput').value.trim();
       if (!name) { App.toast('影片名不能为空', 'err'); return; }
-      var list = load() || [];
       list.push({ id: App.uid(), name: name, info: info, img: pendingImg, created_at: new Date().toISOString() });
       save(list);
       App.$('nameInput').value = '';
@@ -124,13 +123,13 @@
     App.$('grid').addEventListener('click', function (e) {
       var id = e.target.getAttribute('data-del');
       if (!id) return;
-      save((load() || []).filter(function (r) { return r.id !== id; }));
+      list = list.filter(function (r) { return r.id !== id; });
+      save(list);
       render();
       App.toast('已删除');
     });
 
-    ensureSeed();
-    render();
+    App.loadList(KIND, seed).then(function (d) { list = d || []; render(); });
   })();
   </script>
 </body>

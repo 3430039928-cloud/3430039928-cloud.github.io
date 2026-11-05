@@ -6,6 +6,7 @@
   <title>日历｜我的私人小站</title>
   <meta name="description" content="一个月一页的日历，每天一格，记录当天发生的事">
   <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
   <main class="container">
@@ -32,7 +33,7 @@
     </div>
 
     <p style="color:var(--muted);font-size:13px;margin-top:14px;text-align:center">
-      有内容的日子会染上淡色并冒出小圆点 · 数据存在这台设备的浏览器里
+      有内容的日子会染上淡色并冒出小圆点 · 登录后存云端、跨设备同步；未登录存本机
     </p>
   </main>
 
@@ -52,10 +53,11 @@
 
   <script src="app.js"></script>
   <script src="site.js"></script>
+  <script src="cloud.js"></script>
   <script>
   (function () {
-    var KEY = 'myblog-calendar-v1';
-    var data = App.loadStore(KEY, {});   // { 'YYYY-MM-DD': '文字' }
+    var KIND = 'calendar';
+    var data = {};
     var now = new Date();
     var viewY = now.getFullYear();
     var viewM = now.getMonth();          // 0-11
@@ -63,6 +65,7 @@
 
     function pad(n) { return (n < 10 ? '0' : '') + n; }
     function keyOf(y, m, d) { return y + '-' + pad(m + 1) + '-' + pad(d); }
+    function persist() { App.saveList(KIND, data); }
 
     function render() {
       var first = new Date(viewY, viewM, 1);
@@ -76,7 +79,7 @@
       var monthPrefix = viewY + '-' + pad(viewM + 1) + '-';
       var monthCount = 0, total = 0;
       for (var k in data) {
-        if (data[k].trim()) {
+        if (data[k] && data[k].trim()) {
           total++;
           if (k.indexOf(monthPrefix) === 0) monthCount++;
         }
@@ -97,7 +100,7 @@
           d = i - startWeekday + 1;
         }
         var k = keyOf(y, m, d);
-        var note = (data[k] || '').trim();
+        var note = ((data[k] || '').trim());
         var isToday = (!out && y === now.getFullYear() && m === now.getMonth() && d === now.getDate());
         var cls = 'cal-cell' + (out ? ' out' : '') + (note ? ' has' : '') + (isToday ? ' today' : '');
         var inner = '<span class="cal-daynum">' + d + '</span>';
@@ -122,14 +125,14 @@
       if (!editingKey) return;
       var v = App.$('modalText').value.trim();
       if (v) data[editingKey] = v; else delete data[editingKey];
-      App.saveStore(KEY, data);
+      persist();
       closeEditor();
       render();
       App.toast(v ? '已记下' : '已清空');
     }
     function clearNote() {
       if (editingKey) delete data[editingKey];
-      App.saveStore(KEY, data);
+      persist();
       App.$('modalText').value = '';
       closeEditor();
       render();
@@ -151,7 +154,7 @@
     });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeEditor(); });
 
-    render();
+    App.loadList(KIND, {}).then(function (d) { data = d || {}; render(); });
   })();
   </script>
 </body>

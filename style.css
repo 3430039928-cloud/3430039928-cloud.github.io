@@ -556,3 +556,74 @@ img { max-width: 100%; display: block; }
   .cal-week span { font-size: 11px; }
   .cal-month { min-width: 96px; font-size: 16px; }
 }
+
+/* ===== 导航登录按钮（让中间导航占满，按钮靠右）===== */
+.nav { flex: 1; min-width: 0; }
+.auth-btn {
+  flex: 0 0 auto;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: .15s;
+}
+.auth-btn:hover { filter: brightness(1.05); }
+.auth-btn.is-user { background: #fff; color: var(--accent); }
+
+/* ===== 登录弹层 ===== */
+.auth-modal {
+  position: fixed; inset: 0;
+  background: rgba(35, 38, 43, .45);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 120;
+  padding: 18px;
+}
+.auth-modal.open { display: flex; }
+.auth-box {
+  position: relative;
+  background: #fff;
+  border-radius: var(--radius);
+  width: 100%;
+  max-width: 360px;
+  padding: 22px 22px 18px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.25);
+}
+.auth-close {
+  position: absolute; top: 10px; right: 12px;
+  border: none; background: transparent;
+  font-size: 22px; line-height: 1; color: var(--muted);
+  cursor: pointer;
+}
+.auth-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+.auth-tab {
+  border: 1px solid var(--line); background: #fff;
+  border-radius: 999px; padding: 6px 16px;
+  font: inherit; font-size: 14px; color: var(--muted);
+  cursor: pointer; transition: .15s;
+}
+.auth-tab.active { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+.auth-box input[type=email], .auth-box input[type=password] {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 11px 12px;
+  font: inherit;
+  margin-bottom: 10px;
+  box-sizing: border-box;
+}
+.auth-box input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.auth-err { color: var(--danger); font-size: 13px; min-height: 18px; margin-bottom: 8px; }
+.auth-box .btn-primary { width: 100%; }
+.auth-hint { color: var(--muted); font-size: 12px; margin-top: 12px; line-height: 1.5; }
+
+@media (max-width: 560px) {
+  .auth-btn { padding: 5px 11px; font-size: 12.5px; }
+}

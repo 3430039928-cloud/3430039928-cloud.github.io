@@ -4,14 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>记录本｜我的私人小站</title>
-  <meta name="description" content="代办与待购买，本地保存，勾选即完成">
+  <meta name="description" content="代办与待购买，勾选即完成">
   <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
   <main class="container">
     <div class="page-head">
       <h1>记录本</h1>
-      <p class="sub">代办与待购买 · 数据存在这台设备的浏览器里，只有你能看到</p>
+      <p class="sub">代办与待购买 · 登录后存云端、跨设备同步；未登录存本机</p>
     </div>
 
     <div class="tabs" id="tabs">
@@ -33,15 +34,16 @@
 
   <script src="app.js"></script>
   <script src="site.js"></script>
+  <script src="cloud.js"></script>
   <script>
   (function () {
-    var KEY = 'myblog-notes-v1';
+    var KIND = 'notes';
     var TYPES = {
       todo:     { label: '代办',   remainingLabel: '还剩',   hasDone: true },
       wishlist: { label: '待购买', remainingLabel: '待买',   hasDone: true }
     };
     var activeType = 'todo';
-    var cache = {};
+    var cache = { todo: [], wishlist: [] };
 
     function $(id) { return document.getElementById(id); }
     function esc(s) {
@@ -55,15 +57,13 @@
       return x.getFullYear() + '-' + p(x.getMonth() + 1) + '-' + p(x.getDate());
     }
     function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
-    function load() { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } }
-    function save(obj) { localStorage.setItem(KEY, JSON.stringify(obj)); }
+    function persist() { App.saveList(KIND, cache); }
 
     function listOf(type) {
       return (cache[type] || []).slice().sort(function (a, b) {
         return new Date(b.created_at) - new Date(a.created_at);
       });
     }
-    function persist() { save(cache); }
 
     function render() {
       var cfg = TYPES[activeType];
@@ -159,8 +159,10 @@
       this.style.height = Math.min(this.scrollHeight, 200) + 'px';
     });
 
-    cache = load();
-    render();
+    App.loadList(KIND, { todo: [], wishlist: [] }).then(function (d) {
+      cache = d || { todo: [], wishlist: [] };
+      render();
+    });
   })();
   </script>
 </body>
