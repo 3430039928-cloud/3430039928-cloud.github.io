@@ -21,7 +21,6 @@
           return '<a href="' + n.href + '"' + active + '>' + n.label + '</a>';
         }).join('') +
       '</nav>' +
-      '<button class="auth-btn" id="authBtn" type="button">登录</button>' +
     '</div>';
   document.body.insertBefore(header, document.body.firstChild);
 
