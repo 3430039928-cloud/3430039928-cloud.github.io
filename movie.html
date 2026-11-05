@@ -1,9 +1,137 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>影｜我的私人小站</title>
+  <link rel="stylesheet" href="style.css">
+</head>
 <body>
-    <h2>书影音记录</h2>
-    <p>用来存放你看过的剧集、比赛、电影、音乐、书籍心得</p>
-    <br>
-    <a href="index.html">返回主页</a>
+  <main class="container">
+    <div class="page-head">
+      <h1>观影相册</h1>
+      <p class="sub">海报、评分与随手记下的感受 —— 写在本地，只有这台设备能看到</p>
+    </div>
+
+    <div class="add-area">
+      <input type="text" id="nameInput" placeholder="影片名">
+      <input type="text" id="infoInput" placeholder="年份｜类型｜你的打分，如：2026｜动画｜★★★★">
+      <div class="row" style="margin-top:10px; gap:10px; flex-wrap:wrap;">
+        <button class="btn btn-ghost btn-sm" id="pickBtn" type="button">选海报</button>
+        <input type="file" id="imgInput" accept="image/*" style="display:none">
+        <span id="imgName" class="muted" style="color:var(--muted);font-size:13px"></span>
+        <button class="btn btn-ghost btn-sm" id="clearImgBtn" type="button" style="display:none">移除海报</button>
+      </div>
+      <div id="imgPrevWrap" style="margin-top:10px; display:none;">
+        <img id="imgPrev" style="max-height:140px; border-radius:10px; border:1px solid var(--line);">
+      </div>
+      <div class="row" style="margin-top:10px; justify-content: space-between;">
+        <span class="muted" style="color:var(--muted);font-size:13px">空名字不会保存 · 海报可选</span>
+        <button class="btn btn-primary btn-sm" id="addBtn">加进相册</button>
+      </div>
+    </div>
+
+    <div class="movie-grid" id="grid"></div>
+  </main>
+
+  <script src="app.js"></script>
+  <script src="site.js"></script>
+  <script>
+  (function () {
+    var KEY = 'myblog-movies-v1';
+    var seed = [
+      { id: App.uid(), name: "Howl's Moving Castle", info: '2026-08-07｜动画', img: 'images/howl049.jpg', created_at: '2026-08-07T12:00:00' }
+    ];
+
+    function load() { return App.loadStore(KEY, null); }
+    function save(list) { App.saveStore(KEY, list); }
+    function ensureSeed() { if (load() === null) { save(seed); } }
+
+    function render() {
+      var list = (load() || []).slice().sort(function (a, b) {
+        return new Date(b.created_at) - new Date(a.created_at);
+      });
+      var box = App.$('grid');
+      if (!list.length) {
+        box.innerHTML = '<div class="empty" style="grid-column:1/-1">还没有影片，在上方加第一部吧。</div>';
+        return;
+      }
+      box.innerHTML = list.map(function (r) {
+        var poster = r.img
+          ? '<img class="poster" src="' + App.escapeHtml(r.img) + '" alt="' + App.escapeHtml(r.name) + '">'
+          : '<div class="poster" style="display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px">无海报</div>';
+        return '<div class="movie">' + poster +
+          '<div class="name">' + App.escapeHtml(r.name) + '</div>' +
+          '<div class="info">' + App.escapeHtml(r.info || '') + '</div>' +
+          '<div class="ops" style="margin-top:6px"><button data-del="' + r.id + '" style="border:none;background:#f1eeea;color:var(--muted);border-radius:8px;padding:4px 10px;font:inherit;font-size:12px;cursor:pointer">删除</button></div>' +
+          '</div>';
+      }).join('');
+    }
+
+    var pendingImg = '';
+    function handleFile(file) {
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function (ev) {
+        var img = new Image();
+        img.onload = function () {
+          var max = 480, w = img.width, h = img.height;
+          if (w > h && w > max) { h = Math.round(h * max / w); w = max; }
+          else if (h > max) { w = Math.round(w * max / h); h = max; }
+          var canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          try { pendingImg = canvas.toDataURL('image/jpeg', 0.82); }
+          catch (err) { pendingImg = ''; App.toast('图片读取失败', 'err'); return; }
+          App.$('imgPrev').src = pendingImg;
+          App.$('imgPrevWrap').style.display = 'block';
+          App.$('imgName').textContent = file.name;
+          App.$('clearImgBtn').style.display = 'inline-block';
+        };
+        img.onerror = function () { App.toast('图片无法读取', 'err'); };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+    App.on('pickBtn', 'click', function () { App.$('imgInput').click(); });
+    App.on('imgInput', 'change', function () { handleFile(this.files[0]); this.value = ''; });
+    App.on('clearImgBtn', 'click', function () {
+      pendingImg = '';
+      App.$('imgPrev').src = '';
+      App.$('imgPrevWrap').style.display = 'none';
+      App.$('imgName').textContent = '';
+      this.style.display = 'none';
+    });
+
+    App.on('addBtn', 'click', function () {
+      var name = App.$('nameInput').value.trim();
+      var info = App.$('infoInput').value.trim();
+      if (!name) { App.toast('影片名不能为空', 'err'); return; }
+      var list = load() || [];
+      list.push({ id: App.uid(), name: name, info: info, img: pendingImg, created_at: new Date().toISOString() });
+      save(list);
+      App.$('nameInput').value = '';
+      App.$('infoInput').value = '';
+      pendingImg = '';
+      App.$('imgPrev').src = '';
+      App.$('imgPrevWrap').style.display = 'none';
+      App.$('imgName').textContent = '';
+      App.$('clearImgBtn').style.display = 'none';
+      render();
+      App.toast(pendingImg ? '已加入相册（含海报）' : '已加入相册');
+    });
+
+    App.$('grid').addEventListener('click', function (e) {
+      var id = e.target.getAttribute('data-del');
+      if (!id) return;
+      save((load() || []).filter(function (r) { return r.id !== id; }));
+      render();
+      App.toast('已删除');
+    });
+
+    ensureSeed();
+    render();
+  })();
+  </script>
 </body>
 </html>

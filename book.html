@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>书｜我的私人小站</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="container">
+    <div class="page-head">
+      <h1>书架</h1>
+      <p class="sub">严肃文学与脆皮鸭，分两个书架。写在本地，只有这台设备能看到</p>
+    </div>
+
+    <div class="tabs" id="tabs">
+      <button data-cat="严肃文学" class="active">严肃文学</button>
+      <button data-cat="脆皮鸭">脆皮鸭</button>
+    </div>
+
+    <div class="add-area">
+      <input type="text" id="titleInput" placeholder="书名 / 作品名">
+      <textarea id="noteInput" placeholder="摘抄、读后感悟，或一句话推荐……"></textarea>
+      <div class="row" style="margin-top:10px; justify-content: space-between;">
+        <span class="muted" style="color:var(--muted);font-size:13px" id="catHint">当前分类：严肃文学</span>
+        <button class="btn btn-primary btn-sm" id="addBtn">加到书架</button>
+      </div>
+    </div>
+
+    <div id="list"></div>
+  </main>
+
+  <script src="app.js"></script>
+  <script src="site.js"></script>
+  <script>
+  (function () {
+    var KEY = 'myblog-books-v1';
+    var current = '严肃文学';
+    var seed = [
+      { id: App.uid(), cat: '严肃文学', title: '示例：百年孤独', note: '这是一条示例书摘，删掉它换上你自己的书。点右下角「删除」即可。', created_at: '2026-08-10T10:00:00' },
+      { id: App.uid(), cat: '脆皮鸭', title: '示例：某篇同人', note: '脆皮鸭区放你喜欢的同人 / CP 文。同样可删除替换。', created_at: '2026-08-11T10:00:00' }
+    ];
+
+    function load() { return App.loadStore(KEY, null); }
+    function save(list) { App.saveStore(KEY, list); }
+    function ensureSeed() { if (load() === null) { save(seed); } }
+
+    function render() {
+      var list = (load() || []).filter(function (r) { return r.cat === current; })
+        .sort(function (a, b) { return new Date(b.created_at) - new Date(a.created_at); });
+      var box = App.$('list');
+      if (!list.length) {
+        box.innerHTML = '<div class="empty">这个书架空空的，在上方加一本吧。</div>';
+        return;
+      }
+      box.innerHTML = list.map(function (r) {
+        return '<article class="item">' +
+          '<div class="head"><h3>' + App.escapeHtml(r.title || '（无标题）') + '</h3>' +
+          '<span class="when">' + App.escapeHtml(App.fmtDate(r.created_at)) + '</span></div>' +
+          (r.note ? '<div class="body">' + App.escapeHtml(r.note) + '</div>' : '') +
+          '<div class="ops"><button data-del="' + r.id + '">删除</button></div>' +
+          '</article>';
+      }).join('');
+    }
+
+    App.$('tabs').addEventListener('click', function (e) {
+      var btn = e.target.closest('button');
+      if (!btn) return;
+      current = btn.getAttribute('data-cat');
+      Array.prototype.forEach.call(this.querySelectorAll('button'), function (b) {
+        b.classList.toggle('active', b === btn);
+      });
+      App.$('catHint').textContent = '当前分类：' + current;
+      render();
+    });
+
+    App.on('addBtn', 'click', function () {
+      var title = App.$('titleInput').value.trim();
+      var note = App.$('noteInput').value.trim();
+      if (!title && !note) { App.toast('书名和笔记都空着呢', 'err'); return; }
+      var list = load() || [];
+      list.push({ id: App.uid(), cat: current, title: title, note: note, created_at: new Date().toISOString() });
+      save(list);
+      App.$('titleInput').value = '';
+      App.$('noteInput').value = '';
+      render();
+      App.toast('已加入「' + current + '」');
+    });
+
+    App.$('list').addEventListener('click', function (e) {
+      var id = e.target.getAttribute('data-del');
+      if (!id) return;
+      save((load() || []).filter(function (r) { return r.id !== id; }));
+      render();
+      App.toast('已删除');
+    });
+
+    ensureSeed();
+    render();
+  })();
+  </script>
+</body>
+</html>

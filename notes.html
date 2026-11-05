@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>记录本｜我的私人小站</title>
+  <meta name="description" content="代办与待购买，本地保存，勾选即完成">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="container">
+    <div class="page-head">
+      <h1>记录本</h1>
+      <p class="sub">代办与待购买 · 数据存在这台设备的浏览器里，只有你能看到</p>
+    </div>
+
+    <div class="tabs" id="tabs">
+      <button data-type="todo" class="active">代办</button>
+      <button data-type="wishlist">待购买</button>
+    </div>
+
+    <div class="stat-bar" id="statBar"></div>
+
+    <div class="add-area">
+      <textarea id="addInput" placeholder="写点什么…（回车添加，空内容不会保存）"></textarea>
+      <div class="row" style="margin-top:10px; justify-content: flex-end;">
+        <button class="btn btn-primary btn-sm" id="addBtn">添加</button>
+      </div>
+    </div>
+
+    <div id="list"></div>
+  </main>
+
+  <script src="app.js"></script>
+  <script src="site.js"></script>
+  <script>
+  (function () {
+    var KEY = 'myblog-notes-v1';
+    var TYPES = {
+      todo:     { label: '代办',   remainingLabel: '还剩',   hasDone: true },
+      wishlist: { label: '待购买', remainingLabel: '待买',   hasDone: true }
+    };
+    var activeType = 'todo';
+    var cache = {};
+
+    function $(id) { return document.getElementById(id); }
+    function esc(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+    function fmt(d) {
+      var x = new Date(d); if (isNaN(x)) return '';
+      var p = function (n) { return (n < 10 ? '0' : '') + n; };
+      return x.getFullYear() + '-' + p(x.getMonth() + 1) + '-' + p(x.getDate());
+    }
+    function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+    function load() { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } }
+    function save(obj) { localStorage.setItem(KEY, JSON.stringify(obj)); }
+
+    function listOf(type) {
+      return (cache[type] || []).slice().sort(function (a, b) {
+        return new Date(b.created_at) - new Date(a.created_at);
+      });
+    }
+    function persist() { save(cache); }
+
+    function render() {
+      var cfg = TYPES[activeType];
+      var items = listOf(activeType);
+      var remaining = items.filter(function (r) { return !r.done; }).length;
+
+      $('statBar').innerHTML = '<span class="pill">' + remaining + '</span> ' +
+        cfg.remainingLabel + ' ' + items.length + ' 条';
+
+      var box = $('list');
+      if (!items.length) {
+        box.innerHTML = '<div class="empty">还没有' + cfg.label + '，在上方加一条吧。</div>';
+        return;
+      }
+      box.innerHTML = items.map(function (r) {
+        var done = r.done ? ' done' : '';
+        var check = '<div class="checkbox" data-act="toggle" data-id="' + r.id + '">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>';
+        var text = r.editing
+          ? '<textarea class="edit-box" data-act="edit" data-id="' + r.id + '" style="width:100%;border:1px solid var(--accent);border-radius:10px;padding:9px 11px;font:inherit;resize:vertical;min-height:60px">' + esc(r.content) + '</textarea>'
+          : '<div class="t">' + esc(r.content) + '</div><div class="when">' + fmt(r.created_at) + '</div>';
+        var ops = r.editing
+          ? '<button data-act="save" data-id="' + r.id + '">保存</button><button data-act="cancel" data-id="' + r.id + '">取消</button>'
+          : '<button data-act="edit" data-id="' + r.id + '">编辑</button><button class="del" data-act="del" data-id="' + r.id + '">删除</button>';
+        return '<div class="rec-item' + done + '">' + check +
+          '<div class="text">' + text + '</div>' +
+          '<div class="ops">' + ops + '</div></div>';
+      }).join('');
+
+      var ta = box.querySelector('textarea.edit-box');
+      if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+    }
+
+    function add() {
+      var ta = $('addInput');
+      var content = ta.value.trim();
+      if (!content) { ta.focus(); return; }
+      cache[activeType] = cache[activeType] || [];
+      cache[activeType].push({ id: uid(), content: content, done: false, created_at: new Date().toISOString() });
+      persist();
+      ta.value = '';
+      ta.style.height = 'auto';
+      render();
+    }
+
+    function updateContent(id, content) {
+      var it = (cache[activeType] || []).find(function (r) { return r.id === id; });
+      if (!it) return;
+      var v = content.trim();
+      if (!v) { it.editing = false; render(); return; }
+      it.content = v;
+      it.editing = false;
+      persist();
+      render();
+    }
+
+    $('list').addEventListener('click', function (e) {
+      var t = e.target.closest('[data-act]');
+      if (!t) return;
+      var act = t.getAttribute('data-act');
+      var id = t.getAttribute('data-id');
+      var it = (cache[activeType] || []).find(function (r) { return r.id === id; });
+      if (!it) return;
+      if (act === 'toggle') { it.done = !it.done; persist(); render(); }
+      else if (act === 'edit') { it.editing = true; render(); }
+      else if (act === 'cancel') { it.editing = false; render(); }
+      else if (act === 'save') {
+        var box = $('list').querySelector('textarea.edit-box');
+        updateContent(id, box ? box.value : '');
+      }
+      else if (act === 'del') {
+        cache[activeType] = (cache[activeType] || []).filter(function (r) { return r.id !== id; });
+        persist(); render();
+      }
+    });
+
+    $('tabs').addEventListener('click', function (e) {
+      var btn = e.target.closest('button');
+      if (!btn) return;
+      activeType = btn.getAttribute('data-type');
+      Array.prototype.forEach.call(this.querySelectorAll('button'), function (b) {
+        b.classList.toggle('active', b === btn);
+      });
+      render();
+    });
+
+    $('addBtn').addEventListener('click', add);
+    $('addInput').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); add(); }
+    });
+    $('addInput').addEventListener('input', function () {
+      this.style.height = 'auto';
+      this.style.height = Math.min(this.scrollHeight, 200) + 'px';
+    });
+
+    cache = load();
+    render();
+  })();
+  </script>
+</body>
+</html>

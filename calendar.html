@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>日历｜我的私人小站</title>
+  <meta name="description" content="一个月一页的日历，每天一格，记录当天发生的事">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="container">
+    <div class="page-head">
+      <h1>日历</h1>
+      <p class="sub">一个月一页，每天一个小格 —— 点一下格子，写写当天发生了什么</p>
+    </div>
+
+    <div class="cal-wrap">
+      <div class="cal-toolbar">
+        <div class="cal-nav">
+          <button id="prevBtn" aria-label="上一月">‹</button>
+          <span class="cal-month" id="monthLabel">—</span>
+          <button id="nextBtn" aria-label="下一月">›</button>
+        </div>
+        <button class="cal-today" id="todayBtn">回到今天</button>
+      </div>
+      <div class="cal-stat" id="calStat"></div>
+
+      <div class="cal-week">
+        <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+    </div>
+
+    <p style="color:var(--muted);font-size:13px;margin-top:14px;text-align:center">
+      有内容的日子会染上淡色并冒出小圆点 · 数据存在这台设备的浏览器里
+    </p>
+  </main>
+
+  <!-- 编辑弹层 -->
+  <div class="cal-modal" id="calModal">
+    <div class="cal-modal-card">
+      <h3 id="modalDate">—</h3>
+      <div class="cal-modal-sub">这一天发生了什么？随手记几句</div>
+      <textarea id="modalText" placeholder="例如：去看了《哈尔的移动城堡》，晚饭做了番茄牛腩……"></textarea>
+      <div class="cal-modal-ops">
+        <button class="btn btn-ghost btn-sm btn-del" id="clearBtn">清空</button>
+        <button class="btn btn-ghost btn-sm" id="closeBtn">关闭</button>
+        <button class="btn btn-primary btn-sm" id="saveBtn">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script src="site.js"></script>
+  <script>
+  (function () {
+    var KEY = 'myblog-calendar-v1';
+    var data = App.loadStore(KEY, {});   // { 'YYYY-MM-DD': '文字' }
+    var now = new Date();
+    var viewY = now.getFullYear();
+    var viewM = now.getMonth();          // 0-11
+    var editingKey = null;
+
+    function pad(n) { return (n < 10 ? '0' : '') + n; }
+    function keyOf(y, m, d) { return y + '-' + pad(m + 1) + '-' + pad(d); }
+
+    function render() {
+      var first = new Date(viewY, viewM, 1);
+      var startWeekday = (first.getDay() + 6) % 7;  // 0=周一（周一开始）
+      var daysInMonth = new Date(viewY, viewM + 1, 0).getDate();
+      var prevDays = new Date(viewY, viewM, 0).getDate();
+
+      App.$('monthLabel').textContent = viewY + ' 年 ' + (viewM + 1) + ' 月';
+
+      // 统计：本月已记 / 累计
+      var monthPrefix = viewY + '-' + pad(viewM + 1) + '-';
+      var monthCount = 0, total = 0;
+      for (var k in data) {
+        if (data[k].trim()) {
+          total++;
+          if (k.indexOf(monthPrefix) === 0) monthCount++;
+        }
+      }
+      App.$('calStat').textContent = '本月已记 ' + monthCount + ' 天 · 累计 ' + total + ' 天';
+
+      var cells = [];
+      var totalCells = 42;
+      for (var i = 0; i < totalCells; i++) {
+        var d, y = viewY, m = viewM, out = false;
+        if (i < startWeekday) {
+          d = prevDays - startWeekday + 1 + i; out = true;
+          if (viewM === 0) { y = viewY - 1; m = 11; } else { m = viewM - 1; }
+        } else if (i >= startWeekday + daysInMonth) {
+          d = i - (startWeekday + daysInMonth) + 1; out = true;
+          if (viewM === 11) { y = viewY + 1; m = 0; } else { m = viewM + 1; }
+        } else {
+          d = i - startWeekday + 1;
+        }
+        var k = keyOf(y, m, d);
+        var note = (data[k] || '').trim();
+        var isToday = (!out && y === now.getFullYear() && m === now.getMonth() && d === now.getDate());
+        var cls = 'cal-cell' + (out ? ' out' : '') + (note ? ' has' : '') + (isToday ? ' today' : '');
+        var inner = '<span class="cal-daynum">' + d + '</span>';
+        if (note) {
+          inner += '<span class="cal-dot"></span>';
+          inner += '<span class="cal-snip">' + App.escapeHtml(note.replace(/\s+/g, ' ')) + '</span>';
+        }
+        cells.push('<div class="' + cls + '" data-key="' + (out ? '' : k) + '" data-out="' + (out ? '1' : '0') + '">' + inner + '</div>');
+      }
+      App.$('calGrid').innerHTML = cells.join('');
+    }
+
+    function openEditor(k) {
+      editingKey = k;
+      App.$('modalDate').textContent = k;
+      App.$('modalText').value = data[k] || '';
+      App.$('calModal').classList.add('show');
+      App.$('modalText').focus();
+    }
+    function closeEditor() { App.$('calModal').classList.remove('show'); editingKey = null; }
+    function saveNote() {
+      if (!editingKey) return;
+      var v = App.$('modalText').value.trim();
+      if (v) data[editingKey] = v; else delete data[editingKey];
+      App.saveStore(KEY, data);
+      closeEditor();
+      render();
+      App.toast(v ? '已记下' : '已清空');
+    }
+    function clearNote() {
+      if (editingKey) delete data[editingKey];
+      App.saveStore(KEY, data);
+      App.$('modalText').value = '';
+      closeEditor();
+      render();
+      App.toast('已清空', 'err');
+    }
+
+    App.on('prevBtn', 'click', function () { viewM--; if (viewM < 0) { viewM = 11; viewY--; } render(); });
+    App.on('nextBtn', 'click', function () { viewM++; if (viewM > 11) { viewM = 0; viewY++; } render(); });
+    App.on('todayBtn', 'click', function () { var t = new Date(); viewY = t.getFullYear(); viewM = t.getMonth(); render(); });
+    App.on('saveBtn', 'click', saveNote);
+    App.on('closeBtn', 'click', closeEditor);
+    App.on('clearBtn', 'click', clearNote);
+    App.on('calModal', 'click', function (e) { if (e.target === this) closeEditor(); });
+
+    App.$('calGrid').addEventListener('click', function (e) {
+      var cell = e.target.closest('.cal-cell');
+      if (!cell || cell.getAttribute('data-out') === '1') return;
+      openEditor(cell.getAttribute('data-key'));
+    });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeEditor(); });
+
+    render();
+  })();
+  </script>
+</body>
+</html>
