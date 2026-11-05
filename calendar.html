@@ -33,20 +33,35 @@
     </div>
 
     <p style="color:var(--muted);font-size:13px;margin-top:14px;text-align:center">
-      有内容的日子会染上淡色并冒出小圆点 · 登录后存云端、跨设备同步；未登录存本机
+      已写内容的日子点开是「查看」，想改再点编辑 · 数据存云端，跨设备同步
     </p>
   </main>
 
-  <!-- 编辑弹层 -->
+  <!-- 弹层 -->
   <div class="cal-modal" id="calModal">
     <div class="cal-modal-card">
       <h3 id="modalDate">—</h3>
-      <div class="cal-modal-sub">这一天发生了什么？随手记几句</div>
-      <textarea id="modalText" placeholder="例如：去看了《哈尔的移动城堡》，晚饭做了番茄牛腩……"></textarea>
-      <div class="cal-modal-ops">
-        <button class="btn btn-ghost btn-sm btn-del" id="clearBtn">清空</button>
-        <button class="btn btn-ghost btn-sm" id="closeBtn">关闭</button>
-        <button class="btn btn-primary btn-sm" id="saveBtn">保存</button>
+
+      <!-- 查看模式（只读） -->
+      <div id="viewBox">
+        <div class="cal-modal-sub">这一天的记录</div>
+        <div class="cal-view-text" id="viewText"></div>
+        <div class="cal-modal-ops">
+          <button class="btn btn-ghost btn-sm" id="editBtn">编辑</button>
+          <button class="btn btn-ghost btn-sm btn-del" id="delBtn">删除</button>
+          <button class="btn btn-ghost btn-sm" id="closeBtn">关闭</button>
+        </div>
+      </div>
+
+      <!-- 编辑模式 -->
+      <div id="editBox" style="display:none">
+        <div class="cal-modal-sub" id="editSub">写点什么吧</div>
+        <textarea id="modalText" placeholder="例如：去看了《哈尔的移动城堡》，晚饭做了番茄牛腩……"></textarea>
+        <div class="cal-modal-ops">
+          <button class="btn btn-ghost btn-sm btn-del" id="clearBtn">清空</button>
+          <button class="btn btn-ghost btn-sm" id="backBtn">返回</button>
+          <button class="btn btn-primary btn-sm" id="saveBtn">保存</button>
+        </div>
       </div>
     </div>
   </div>
@@ -113,28 +128,48 @@
       App.$('calGrid').innerHTML = cells.join('');
     }
 
-    function openEditor(k) {
+    // 查看模式（只读）
+    function showView(k) {
+      editingKey = k;
+      App.$('modalDate').textContent = k;
+      App.$('viewText').textContent = data[k] || '';
+      App.$('viewBox').style.display = '';
+      App.$('editBox').style.display = 'none';
+      App.$('calModal').classList.add('show');
+    }
+    // 编辑模式（可改）
+    function showEdit(k) {
       editingKey = k;
       App.$('modalDate').textContent = k;
       App.$('modalText').value = data[k] || '';
+      App.$('editSub').textContent = (data[k] ? '修改这一天的记录' : '写点什么吧');
+      App.$('editBox').style.display = '';
+      App.$('viewBox').style.display = 'none';
       App.$('calModal').classList.add('show');
       App.$('modalText').focus();
     }
-    function closeEditor() { App.$('calModal').classList.remove('show'); editingKey = null; }
+    function closeModal() { App.$('calModal').classList.remove('show'); editingKey = null; }
+
     function saveNote() {
       if (!editingKey) return;
       var v = App.$('modalText').value.trim();
       if (v) data[editingKey] = v; else delete data[editingKey];
       persist();
-      closeEditor();
+      closeModal();
       render();
-      App.toast(v ? '已记下' : '已清空');
+      App.toast(v ? '已保存' : '已清空');
+    }
+    function deleteNote() {
+      if (editingKey) delete data[editingKey];
+      persist();
+      closeModal();
+      render();
+      App.toast('已删除', 'err');
     }
     function clearNote() {
       if (editingKey) delete data[editingKey];
       persist();
-      App.$('modalText').value = '';
-      closeEditor();
+      closeModal();
       render();
       App.toast('已清空', 'err');
     }
@@ -143,16 +178,21 @@
     App.on('nextBtn', 'click', function () { viewM++; if (viewM > 11) { viewM = 0; viewY++; } render(); });
     App.on('todayBtn', 'click', function () { var t = new Date(); viewY = t.getFullYear(); viewM = t.getMonth(); render(); });
     App.on('saveBtn', 'click', saveNote);
-    App.on('closeBtn', 'click', closeEditor);
+    App.on('closeBtn', 'click', closeModal);
+    App.on('backBtn', 'click', function () { if (editingKey && data[editingKey]) showView(editingKey); else closeModal(); });
+    App.on('editBtn', 'click', function () { if (editingKey) showEdit(editingKey); });
+    App.on('delBtn', 'click', deleteNote);
     App.on('clearBtn', 'click', clearNote);
-    App.on('calModal', 'click', function (e) { if (e.target === this) closeEditor(); });
+    App.on('calModal', 'click', function (e) { if (e.target === this) closeModal(); });
 
     App.$('calGrid').addEventListener('click', function (e) {
       var cell = e.target.closest('.cal-cell');
       if (!cell || cell.getAttribute('data-out') === '1') return;
-      openEditor(cell.getAttribute('data-key'));
+      var k = cell.getAttribute('data-key');
+      if (data[k] && data[k].trim()) showView(k);   // 有内容 → 查看
+      else showEdit(k);                              // 空白 → 直接编辑
     });
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeEditor(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeModal(); });
 
     App.loadList(KIND, {}).then(function (d) { data = d || {}; render(); });
   })();
