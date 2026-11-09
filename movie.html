@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>影｜我的私人小站</title>
-  <link rel="stylesheet" href="style.css?v=3">
+  <link rel="stylesheet" href="style.css?v=4">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -33,8 +33,8 @@
     </div>
 
     <div class="ov" id="ov">
-      <div class="ov-head" id="ovHead"><span>📑 总览 · 只看片名</span><span class="ov-count" id="ovCount"></span></div>
-      <div class="ov-list" id="ovList"></div>
+      <div class="ov-head" id="ovHead"><span>电影墙 · 点击封面看观后感</span><span class="ov-count" id="ovCount"></span></div>
+      <div class="wall-grid" id="ovList"></div>
     </div>
 
     <div class="movie-grid" id="grid"></div>
@@ -52,29 +52,34 @@
     var list = [];
     function save(l) { App.saveList(KIND, l); }
 
+    function parseInfo(info) {
+      if (!info) return { stars: '', text: '' };
+      var stars = (info.match(/[★☆]+/) || [''])[0];
+      var text = info.replace(/[★☆]+/, '').replace(/^[\s\|｜\-\—]+/, '').trim();
+      return { stars: stars, text: text };
+    }
+
     function render() {
       var box = App.$('grid');
       var sorted = list.slice().sort(function (a, b) {
         return new Date(b.created_at) - new Date(a.created_at);
       });
       if (!sorted.length) {
-        box.innerHTML = '<div class="empty" style="grid-column:1/-1">还没有影片，在上方加第一部吧。</div>';
+        box.innerHTML = '<div class="empty">还没有影片，在上方加第一部吧。</div>';
         App.$('ov').style.display = 'none';
         return;
       }
       box.innerHTML = sorted.map(function (r) {
         var poster = r.img
           ? '<img class="poster" src="' + App.escapeHtml(r.img) + '" alt="' + App.escapeHtml(r.name) + '">'
-          : '<div class="poster" style="display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px">无海报</div>';
-        var longInfo = !!(r.info && r.info.length > 50);
-        var infoHtml = r.info
-          ? '<div class="info' + (longInfo ? ' collapsible' : '') + '">' + App.escapeHtml(r.info) + '</div>' +
-            (longInfo ? '<button type="button" class="info-toggle">展开影评 ▾</button>' : '')
-          : '';
+          : '<div class="poster ph">无海报</div>';
+        var p = parseInfo(r.info);
+        var right =
+          '<h3 class="name">' + App.escapeHtml(r.name) + '</h3>' +
+          (p.stars ? '<div class="m-stars">' + App.escapeHtml(p.stars) + '</div>' : '') +
+          (p.text ? '<div class="info">' + App.escapeHtml(p.text) + '</div>' : '');
         return '<div class="movie" id="movie-' + r.id + '">' + poster +
-          '<div class="name">' + App.escapeHtml(r.name) + '</div>' +
-          infoHtml +
-          '</div>';
+          '<div class="m-main">' + right + '</div></div>';
       }).join('');
       renderOverview(sorted);
     }
@@ -83,12 +88,11 @@
       var ov = App.$('ovList');
       App.$('ov').style.display = '';
       App.$('ovCount').textContent = items.length + ' 部';
-      ov.innerHTML = items.map(function (r, i) {
-        return '<a class="ov-item" data-id="' + r.id + '" href="#movie-' + r.id + '">' +
-          '<span class="ov-idx">' + (i + 1) + '</span>' +
-          '<span class="ov-title">' + App.escapeHtml(r.name) + '</span>' +
-          (r.info ? '<span class="ov-sub">' + App.escapeHtml(r.info) + '</span>' : '') +
-          '</a>';
+      ov.innerHTML = items.map(function (r) {
+        var cover = r.img
+          ? '<img src="' + App.escapeHtml(r.img) + '" alt="' + App.escapeHtml(r.name) + '">'
+          : '<div class="wall-ph"><div class="t">' + App.escapeHtml(r.name) + '</div></div>';
+        return '<a class="wall-item" data-id="' + r.id + '" href="#movie-' + r.id + '" title="' + App.escapeHtml(r.name) + '">' + cover + '</a>';
       }).join('');
     }
 
@@ -144,19 +148,8 @@
       App.toast(pendingImg ? '已加入相册（含海报）' : '已加入相册');
     });
 
-    App.$('grid').addEventListener('click', function (e) {
-      var tg = e.target.closest('.info-toggle');
-      if (tg) {
-        var info = tg.closest('.movie').querySelector('.info');
-        if (info) {
-          var open = info.classList.toggle('open');
-          tg.textContent = open ? '收起 ▴' : '展开影评 ▾';
-        }
-      }
-    });
-
     App.$('ovList').addEventListener('click', function (e) {
-      var a = e.target.closest('.ov-item');
+      var a = e.target.closest('.wall-item');
       if (!a) return;
       e.preventDefault();
       var el = document.getElementById('movie-' + a.getAttribute('data-id'));
