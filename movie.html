@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>影｜我的私人小站</title>
-  <link rel="stylesheet" href="style.css?v=2">
+  <link rel="stylesheet" href="style.css?v=3">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -66,9 +66,14 @@
         var poster = r.img
           ? '<img class="poster" src="' + App.escapeHtml(r.img) + '" alt="' + App.escapeHtml(r.name) + '">'
           : '<div class="poster" style="display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px">无海报</div>';
+        var longInfo = !!(r.info && r.info.length > 50);
+        var infoHtml = r.info
+          ? '<div class="info' + (longInfo ? ' collapsible' : '') + '">' + App.escapeHtml(r.info) + '</div>' +
+            (longInfo ? '<button type="button" class="info-toggle">展开影评 ▾</button>' : '')
+          : '';
         return '<div class="movie" id="movie-' + r.id + '">' + poster +
           '<div class="name">' + App.escapeHtml(r.name) + '</div>' +
-          '<div class="info">' + App.escapeHtml(r.info || '') + '</div>' +
+          infoHtml +
           '<div class="ops" style="margin-top:6px"><button data-del="' + r.id + '" style="border:none;background:#f1eeea;color:var(--muted);border-radius:8px;padding:4px 10px;font:inherit;font-size:12px;cursor:pointer">删除</button></div>' +
           '</div>';
       }).join('');
@@ -141,6 +146,15 @@
     });
 
     App.$('grid').addEventListener('click', function (e) {
+      var tg = e.target.closest('.info-toggle');
+      if (tg) {
+        var info = tg.closest('.movie').querySelector('.info');
+        if (info) {
+          var open = info.classList.toggle('open');
+          tg.textContent = open ? '收起 ▴' : '展开影评 ▾';
+        }
+        return;
+      }
       var id = e.target.getAttribute('data-del');
       if (!id) return;
       list = list.filter(function (r) { return r.id !== id; });

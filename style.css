@@ -238,6 +238,20 @@ img { max-width: 100%; display: block; }
   text-align: center;
   margin-top: 3px;
 }
+.movie .info.collapsible {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-align: left;
+  line-height: 1.6;
+}
+.movie .info.collapsible.open { display: block; -webkit-line-clamp: unset; }
+.info-toggle {
+  border: none; background: transparent; color: var(--accent);
+  font: inherit; font-size: 12px; cursor: pointer;
+  padding: 2px 0 0; margin-top: 2px;
+}
 
 /* ===== 功能页：新增区 / 表单 / 按钮 ===== */
 .add-area {
