@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>影｜我的私人小站</title>
-  <link rel="stylesheet" href="style.css?v=4">
+  <link rel="stylesheet" href="style.css?v=5">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -39,6 +39,47 @@
 
     <div class="movie-grid" id="grid"></div>
   </main>
+
+  <!-- 影片查看/编辑弹层（仿日历） -->
+  <div class="cal-modal" id="mvModal">
+    <div class="cal-modal-card">
+      <h3 id="mvTitle">—</h3>
+
+      <!-- 查看模式（只读） -->
+      <div id="mvViewBox">
+        <div class="cal-modal-sub">这部影片</div>
+        <div id="mvViewPoster"></div>
+        <div class="m-stars" id="mvViewStars"></div>
+        <div class="cal-view-text" id="mvViewText"></div>
+        <div class="cal-modal-ops">
+          <button class="btn btn-ghost btn-sm" id="mvEditBtn">编辑</button>
+          <button class="btn btn-ghost btn-sm btn-del" id="mvDelBtn">删除</button>
+          <button class="btn btn-ghost btn-sm" id="mvCloseBtn">关闭</button>
+        </div>
+      </div>
+
+      <!-- 编辑模式 -->
+      <div id="mvEditBox" style="display:none">
+        <div class="cal-modal-sub" id="mvEditSub">修改这部影片</div>
+        <input type="text" id="mvName" placeholder="影片名">
+        <textarea id="mvInfo" placeholder="年份｜类型｜你的打分，以及你的观后感……"></textarea>
+        <div class="row" style="margin-top:4px; gap:10px; flex-wrap:wrap;">
+          <button class="btn btn-ghost btn-sm" id="mvPickBtn" type="button">选海报</button>
+          <input type="file" id="mvImgInput" accept="image/*" style="display:none">
+          <span id="mvImgName" class="muted" style="color:var(--muted);font-size:13px"></span>
+          <button class="btn btn-ghost btn-sm" id="mvClearImgBtn" type="button" style="display:none">移除海报</button>
+        </div>
+        <div id="mvImgPrevWrap" style="margin-top:10px; display:none;">
+          <img id="mvImgPrev" style="max-height:150px; border-radius:10px; border:1px solid var(--line);">
+        </div>
+        <div class="cal-modal-ops">
+          <button class="btn btn-ghost btn-sm btn-del" id="mvDelBtn2">删除</button>
+          <button class="btn btn-ghost btn-sm" id="mvBackBtn">返回</button>
+          <button class="btn btn-primary btn-sm" id="mvSaveBtn">保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script src="app.js"></script>
   <script src="site.js"></script>
@@ -160,6 +201,134 @@
       }
     });
     App.on('ovHead', 'click', function () { App.$('ov').classList.toggle('collapsed'); });
+
+    // ===== 查看 / 编辑（仿日历弹层）=====
+    var editId = '';
+    var editImg = '';
+
+    function findBy(id) {
+      for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+      return null;
+    }
+
+    function showView(id) {
+      var rec = findBy(id);
+      if (!rec) return;
+      editId = id;
+      App.$('mvTitle').textContent = rec.name || '（无标题）';
+      App.$('mvViewPoster').innerHTML = rec.img
+        ? '<img src="' + App.escapeHtml(rec.img) + '" alt="' + App.escapeHtml(rec.name) + '">'
+        : '<div class="mv-ph">无海报</div>';
+      var p = parseInfo(rec.info);
+      App.$('mvViewStars').textContent = p.stars || '';
+      App.$('mvViewStars').style.display = p.stars ? '' : 'none';
+      App.$('mvViewText').textContent = p.text || '（没有写观后感）';
+      App.$('mvViewBox').style.display = '';
+      App.$('mvEditBox').style.display = 'none';
+      App.$('mvModal').classList.add('show');
+    }
+
+    function showEdit(id) {
+      var rec = findBy(id);
+      if (!rec) return;
+      editId = id;
+      App.$('mvTitle').textContent = rec.name || '（无标题）';
+      App.$('mvName').value = rec.name || '';
+      App.$('mvInfo').value = rec.info || '';
+      editImg = rec.img || '';
+      if (editImg) {
+        App.$('mvImgPrev').src = editImg;
+        App.$('mvImgPrevWrap').style.display = 'block';
+        App.$('mvImgName').textContent = '当前海报';
+        App.$('mvClearImgBtn').style.display = 'inline-block';
+      } else {
+        App.$('mvImgPrev').src = '';
+        App.$('mvImgPrevWrap').style.display = 'none';
+        App.$('mvImgName').textContent = '';
+        App.$('mvClearImgBtn').style.display = 'none';
+      }
+      App.$('mvEditBox').style.display = '';
+      App.$('mvViewBox').style.display = 'none';
+      App.$('mvModal').classList.add('show');
+      App.$('mvName').focus();
+    }
+
+    function closeModal() {
+      App.$('mvModal').classList.remove('show');
+      editId = ''; editImg = '';
+    }
+
+    function saveMovie() {
+      if (!editId) return;
+      var rec = findBy(editId);
+      if (!rec) return;
+      var name = App.$('mvName').value.trim();
+      if (!name) { App.toast('影片名不能为空', 'err'); return; }
+      rec.name = name;
+      rec.info = App.$('mvInfo').value.trim();
+      rec.img = editImg;
+      save(list);
+      closeModal();
+      render();
+      App.toast('已保存');
+    }
+
+    function deleteMovie() {
+      if (!editId) return;
+      list = list.filter(function (r) { return r.id !== editId; });
+      save(list);
+      closeModal();
+      render();
+      App.toast('已删除', 'err');
+    }
+
+    function handleEditFile(file) {
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function (ev) {
+        var img = new Image();
+        img.onload = function () {
+          var max = 480, w = img.width, h = img.height;
+          if (w > h && w > max) { h = Math.round(h * max / w); w = max; }
+          else if (h > max) { w = Math.round(w * max / h); h = max; }
+          var canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          try { editImg = canvas.toDataURL('image/jpeg', 0.82); }
+          catch (err) { editImg = ''; App.toast('图片读取失败', 'err'); return; }
+          App.$('mvImgPrev').src = editImg;
+          App.$('mvImgPrevWrap').style.display = 'block';
+          App.$('mvImgName').textContent = file.name;
+          App.$('mvClearImgBtn').style.display = 'inline-block';
+        };
+        img.onerror = function () { App.toast('图片无法读取', 'err'); };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    App.$('grid').addEventListener('click', function (e) {
+      var card = e.target.closest('.movie');
+      if (!card) return;
+      showView(card.id.replace('movie-', ''));
+    });
+    App.on('mvEditBtn', 'click', function () { if (editId) showEdit(editId); });
+    App.on('mvCloseBtn', 'click', closeModal);
+    App.on('mvBackBtn', 'click', function () { if (editId) showView(editId); });
+    App.on('mvSaveBtn', 'click', saveMovie);
+    App.on('mvDelBtn', 'click', deleteMovie);
+    App.on('mvDelBtn2', 'click', deleteMovie);
+    App.on('mvPickBtn', 'click', function () { App.$('mvImgInput').click(); });
+    App.on('mvImgInput', 'change', function () { handleEditFile(this.files[0]); this.value = ''; });
+    App.on('mvClearImgBtn', 'click', function () {
+      editImg = '';
+      App.$('mvImgPrev').src = '';
+      App.$('mvImgPrevWrap').style.display = 'none';
+      App.$('mvImgName').textContent = '';
+      this.style.display = 'none';
+    });
+    App.on('mvModal', 'click', function (e) { if (e.target === this) closeModal(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeModal(); });
 
     App.loadList(KIND, seed).then(function (d) { list = d || []; render(); });
   })();

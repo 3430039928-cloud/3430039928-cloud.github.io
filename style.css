@@ -676,6 +676,20 @@ img { max-width: 100%; display: block; }
   .cal-modal-card textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
   .cal-modal-ops { display: flex; gap: 8px; margin-top: 14px; justify-content: flex-end; flex-wrap: wrap; }
   .cal-modal-ops .btn-del { background: #ffe8ea; color: var(--danger); }
+
+  /* 电影/影片查看编辑弹层补充 */
+  .cal-modal-card input[type="text"] {
+    width: 100%; box-sizing: border-box;
+    border: 1px solid var(--line); border-radius: 10px;
+    padding: 11px 12px; font: inherit; margin-bottom: 10px;
+  }
+  .cal-modal-card input[type="text"]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  #mvViewPoster { margin: 2px 0 10px; }
+  #mvViewPoster img { max-height: 240px; border-radius: 10px; border: 1px solid var(--line); display: block; }
+  .mv-ph { width: 92px; height: 126px; border: 1px dashed var(--line); border-radius: 10px;
+    display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 13px; }
+  .movie { cursor: pointer; }
+  .movie:hover { box-shadow: 0 6px 18px rgba(0,0,0,.10); }
 }
 
 /* ===== 日历小屏微调 ===== */
