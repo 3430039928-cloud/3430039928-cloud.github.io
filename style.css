@@ -455,6 +455,57 @@ img { max-width: 100%; display: block; }
   .footer { margin-top: 34px; }
 }
 
+/* ===== 总览（只列书名/片名，便于快速查阅） ===== */
+.ov {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  margin-bottom: 18px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.ov-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; padding: 11px 16px; cursor: pointer;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px; font-weight: 600; color: var(--ink);
+  user-select: none;
+}
+.ov-head::after { content: "▾"; color: var(--muted); font-size: 12px; transition: transform .2s; }
+.ov.collapsed .ov-head::after { transform: rotate(-90deg); }
+.ov-head .ov-count { color: var(--muted); font-weight: 400; font-size: 13px; }
+.ov-list {
+  max-height: 230px; overflow-y: auto;
+  padding: 8px 10px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.ov.collapsed .ov-list { display: none; }
+.ov.collapsed .ov-head { border-bottom: none; }
+.ov-item {
+  display: flex; align-items: baseline; gap: 9px;
+  padding: 7px 10px; border-radius: 9px;
+  color: var(--ink); font-size: 14.5px; line-height: 1.4;
+}
+.ov-item:hover { background: #f1eeea; }
+.ov-idx {
+  flex: 0 0 auto; min-width: 20px; text-align: right;
+  color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums;
+}
+.ov-title { flex: 1 1 auto; }
+.ov-sub {
+  color: var(--muted); font-size: 12px; flex: 0 0 auto;
+  max-width: 42%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ov-dot {
+  flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--accent); align-self: center;
+}
+.item.flash, .movie.flash {
+  box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow);
+  border-color: var(--accent);
+  transition: box-shadow .25s ease, border-color .25s ease;
+}
+
 /* ===== 日历 ===== */
   .cal-wrap {
     background: var(--card);

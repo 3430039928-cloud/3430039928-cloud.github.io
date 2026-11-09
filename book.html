@@ -28,6 +28,11 @@
       </div>
     </div>
 
+    <div class="ov" id="ov">
+      <div class="ov-head" id="ovHead"><span>📑 总览 · 只看书名</span><span class="ov-count" id="ovCount"></span></div>
+      <div class="ov-list" id="ovList"></div>
+    </div>
+
     <div id="list"></div>
   </main>
 
@@ -52,15 +57,30 @@
         .sort(function (a, b) { return new Date(b.created_at) - new Date(a.created_at); });
       if (!items.length) {
         box.innerHTML = '<div class="empty">这个书架空空的，在上方加一本吧。</div>';
+        App.$('ov').style.display = 'none';
         return;
       }
       box.innerHTML = items.map(function (r) {
-        return '<article class="item">' +
+        return '<article class="item" id="item-' + r.id + '">' +
           '<div class="head"><h3>' + App.escapeHtml(r.title || '（无标题）') + '</h3>' +
           '<span class="when">' + App.escapeHtml(App.fmtDate(r.created_at)) + '</span></div>' +
           (r.note ? '<div class="body">' + App.escapeHtml(r.note) + '</div>' : '') +
           '<div class="ops"><button data-del="' + r.id + '">删除</button></div>' +
           '</article>';
+      }).join('');
+      renderOverview(items);
+    }
+
+    function renderOverview(items) {
+      var ov = App.$('ovList');
+      App.$('ov').style.display = '';
+      App.$('ovCount').textContent = items.length + ' 本';
+      ov.innerHTML = items.map(function (r, i) {
+        return '<a class="ov-item" data-id="' + r.id + '" href="#item-' + r.id + '">' +
+          '<span class="ov-idx">' + (i + 1) + '</span>' +
+          '<span class="ov-title">' + App.escapeHtml(r.title || '（无标题）') + '</span>' +
+          (r.note ? '<span class="ov-dot" title="含笔记"></span>' : '') +
+          '</a>';
       }).join('');
     }
 
@@ -95,6 +115,19 @@
       render();
       App.toast('已删除');
     });
+
+    App.$('ovList').addEventListener('click', function (e) {
+      var a = e.target.closest('.ov-item');
+      if (!a) return;
+      e.preventDefault();
+      var el = document.getElementById('item-' + a.getAttribute('data-id'));
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('flash');
+        setTimeout(function () { el.classList.remove('flash'); }, 1200);
+      }
+    });
+    App.on('ovHead', 'click', function () { App.$('ov').classList.toggle('collapsed'); });
 
     App.loadList(KIND, seed).then(function (d) { list = d || []; render(); });
   })();

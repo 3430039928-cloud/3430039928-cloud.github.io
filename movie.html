@@ -32,6 +32,11 @@
       </div>
     </div>
 
+    <div class="ov" id="ov">
+      <div class="ov-head" id="ovHead"><span>📑 总览 · 只看片名</span><span class="ov-count" id="ovCount"></span></div>
+      <div class="ov-list" id="ovList"></div>
+    </div>
+
     <div class="movie-grid" id="grid"></div>
   </main>
 
@@ -54,17 +59,32 @@
       });
       if (!sorted.length) {
         box.innerHTML = '<div class="empty" style="grid-column:1/-1">还没有影片，在上方加第一部吧。</div>';
+        App.$('ov').style.display = 'none';
         return;
       }
       box.innerHTML = sorted.map(function (r) {
         var poster = r.img
           ? '<img class="poster" src="' + App.escapeHtml(r.img) + '" alt="' + App.escapeHtml(r.name) + '">'
           : '<div class="poster" style="display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px">无海报</div>';
-        return '<div class="movie">' + poster +
+        return '<div class="movie" id="movie-' + r.id + '">' + poster +
           '<div class="name">' + App.escapeHtml(r.name) + '</div>' +
           '<div class="info">' + App.escapeHtml(r.info || '') + '</div>' +
           '<div class="ops" style="margin-top:6px"><button data-del="' + r.id + '" style="border:none;background:#f1eeea;color:var(--muted);border-radius:8px;padding:4px 10px;font:inherit;font-size:12px;cursor:pointer">删除</button></div>' +
           '</div>';
+      }).join('');
+      renderOverview(sorted);
+    }
+
+    function renderOverview(items) {
+      var ov = App.$('ovList');
+      App.$('ov').style.display = '';
+      App.$('ovCount').textContent = items.length + ' 部';
+      ov.innerHTML = items.map(function (r, i) {
+        return '<a class="ov-item" data-id="' + r.id + '" href="#movie-' + r.id + '">' +
+          '<span class="ov-idx">' + (i + 1) + '</span>' +
+          '<span class="ov-title">' + App.escapeHtml(r.name) + '</span>' +
+          (r.info ? '<span class="ov-sub">' + App.escapeHtml(r.info) + '</span>' : '') +
+          '</a>';
       }).join('');
     }
 
@@ -128,6 +148,19 @@
       render();
       App.toast('已删除');
     });
+
+    App.$('ovList').addEventListener('click', function (e) {
+      var a = e.target.closest('.ov-item');
+      if (!a) return;
+      e.preventDefault();
+      var el = document.getElementById('movie-' + a.getAttribute('data-id'));
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('flash');
+        setTimeout(function () { el.classList.remove('flash'); }, 1200);
+      }
+    });
+    App.on('ovHead', 'click', function () { App.$('ov').classList.toggle('collapsed'); });
 
     App.loadList(KIND, seed).then(function (d) { list = d || []; render(); });
   })();
