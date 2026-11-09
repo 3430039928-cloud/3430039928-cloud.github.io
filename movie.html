@@ -74,7 +74,6 @@
         return '<div class="movie" id="movie-' + r.id + '">' + poster +
           '<div class="name">' + App.escapeHtml(r.name) + '</div>' +
           infoHtml +
-          '<div class="ops" style="margin-top:6px"><button data-del="' + r.id + '" style="border:none;background:#f1eeea;color:var(--muted);border-radius:8px;padding:4px 10px;font:inherit;font-size:12px;cursor:pointer">删除</button></div>' +
           '</div>';
       }).join('');
       renderOverview(sorted);
@@ -153,14 +152,7 @@
           var open = info.classList.toggle('open');
           tg.textContent = open ? '收起 ▴' : '展开影评 ▾';
         }
-        return;
       }
-      var id = e.target.getAttribute('data-del');
-      if (!id) return;
-      list = list.filter(function (r) { return r.id !== id; });
-      save(list);
-      render();
-      App.toast('已删除');
     });
 
     App.$('ovList').addEventListener('click', function (e) {
