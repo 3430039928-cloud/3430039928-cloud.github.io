@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>生活随笔｜我的私人小站</title>
-  <link rel="stylesheet" href="style.css?v=2">
+  <link rel="stylesheet" href="style.css?v=5">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -26,6 +26,32 @@
 
     <div id="list"></div>
   </main>
+
+  <!-- 随笔查看/编辑弹层（仿日历） -->
+  <div class="cal-modal" id="dvModal">
+    <div class="cal-modal-card">
+      <h3 id="dvTitle">—</h3>
+      <div id="dvViewBox">
+        <div class="cal-modal-sub">这篇随笔</div>
+        <div class="cal-view-text" id="dvViewText"></div>
+        <div class="cal-modal-ops">
+          <button class="btn btn-ghost btn-sm" id="dvEditBtn">编辑</button>
+          <button class="btn btn-ghost btn-sm btn-del" id="dvDelBtn">删除</button>
+          <button class="btn btn-ghost btn-sm" id="dvCloseBtn">关闭</button>
+        </div>
+      </div>
+      <div id="dvEditBox" style="display:none">
+        <div class="cal-modal-sub">修改这篇随笔</div>
+        <input type="text" id="dvName" placeholder="标题">
+        <textarea id="dvBody" placeholder="今天发生了什么？想说什么都行……"></textarea>
+        <div class="cal-modal-ops">
+          <button class="btn btn-ghost btn-sm btn-del" id="dvDelBtn2">删除</button>
+          <button class="btn btn-ghost btn-sm" id="dvBackBtn">返回</button>
+          <button class="btn btn-primary btn-sm" id="dvSaveBtn">保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script src="app.js"></script>
   <script src="site.js"></script>
@@ -50,11 +76,10 @@
         return;
       }
       box.innerHTML = sorted.map(function (r) {
-        return '<article class="item">' +
+        return '<article class="item" id="ditem-' + r.id + '">' +
           '<div class="head"><h3>' + App.escapeHtml(r.title || '（无标题）') + '</h3>' +
           '<span class="when">' + App.escapeHtml(App.fmtDate(r.created_at)) + '</span></div>' +
           '<div class="body">' + App.escapeHtml(r.body) + '</div>' +
-          '<div class="ops"><button data-del="' + r.id + '">删除</button></div>' +
           '</article>';
       }).join('');
     }
@@ -72,13 +97,50 @@
     });
 
     App.$('list').addEventListener('click', function (e) {
-      var id = e.target.getAttribute('data-del');
-      if (!id) return;
-      list = list.filter(function (r) { return r.id !== id; });
-      save(list);
-      render();
-      App.toast('已删除');
+      var card = e.target.closest('.item');
+      if (!card) return;
+      dvShowView(card.id.replace('ditem-', ''));
     });
+
+    // ===== 查看 / 编辑（仿日历弹层）=====
+    var editId = '';
+    function dvFind(id) { for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i]; return null; }
+    function dvShowView(id) {
+      var rec = dvFind(id); if (!rec) return; editId = id;
+      App.$('dvTitle').textContent = rec.title || '（无标题）';
+      App.$('dvViewText').textContent = rec.body || '（没有内容）';
+      App.$('dvViewBox').style.display = ''; App.$('dvEditBox').style.display = 'none';
+      App.$('dvModal').classList.add('show');
+    }
+    function dvShowEdit(id) {
+      var rec = dvFind(id); if (!rec) return; editId = id;
+      App.$('dvTitle').textContent = rec.title || '（无标题）';
+      App.$('dvName').value = rec.title || '';
+      App.$('dvBody').value = rec.body || '';
+      App.$('dvEditBox').style.display = ''; App.$('dvViewBox').style.display = 'none';
+      App.$('dvModal').classList.add('show'); App.$('dvName').focus();
+    }
+    function dvClose() { App.$('dvModal').classList.remove('show'); editId = ''; }
+    function dvSave() {
+      if (!editId) return; var rec = dvFind(editId); if (!rec) return;
+      var title = App.$('dvName').value.trim();
+      var body = App.$('dvBody').value.trim();
+      if (!title && !body) { App.toast('标题和内容都空着呢', 'err'); return; }
+      rec.title = title; rec.body = body; save(list); dvClose(); render(); App.toast('已保存');
+    }
+    function dvDel() {
+      if (!editId) return;
+      list = list.filter(function (r) { return r.id !== editId; });
+      save(list); dvClose(); render(); App.toast('已删除', 'err');
+    }
+    App.on('dvEditBtn', 'click', function () { if (editId) dvShowEdit(editId); });
+    App.on('dvCloseBtn', 'click', dvClose);
+    App.on('dvBackBtn', 'click', function () { if (editId) dvShowView(editId); });
+    App.on('dvSaveBtn', 'click', dvSave);
+    App.on('dvDelBtn', 'click', dvDel);
+    App.on('dvDelBtn2', 'click', dvDel);
+    App.on('dvModal', 'click', function (e) { if (e.target === this) dvClose(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') dvClose(); });
 
     App.loadList(KIND, seed).then(function (d) { list = d || []; render(); });
   })();

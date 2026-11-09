@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>书｜我的私人小站</title>
-  <link rel="stylesheet" href="style.css?v=2">
+  <link rel="stylesheet" href="style.css?v=5">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -36,6 +36,38 @@
     <div id="list"></div>
   </main>
 
+  <!-- 书查看/编辑弹层（仿日历） -->
+  <div class="cal-modal" id="bkModal">
+    <div class="cal-modal-card">
+      <h3 id="bkTitle">—</h3>
+
+      <div id="bkViewBox">
+        <div class="cal-modal-sub" id="bkViewCat">这本</div>
+        <div class="cal-view-text" id="bkViewText"></div>
+        <div class="cal-modal-ops">
+          <button class="btn btn-ghost btn-sm" id="bkEditBtn">编辑</button>
+          <button class="btn btn-ghost btn-sm btn-del" id="bkDelBtn">删除</button>
+          <button class="btn btn-ghost btn-sm" id="bkCloseBtn">关闭</button>
+        </div>
+      </div>
+
+      <div id="bkEditBox" style="display:none">
+        <div class="cal-modal-sub">修改这本</div>
+        <input type="text" id="bkName" placeholder="书名 / 作品名">
+        <select id="bkCat" style="width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:10px;padding:11px 12px;font:inherit;background:#fff;margin-bottom:10px">
+          <option value="严肃文学">严肃文学</option>
+          <option value="脆皮鸭">脆皮鸭</option>
+        </select>
+        <textarea id="bkNote" placeholder="摘抄、读后感悟，或一句话推荐……"></textarea>
+        <div class="cal-modal-ops">
+          <button class="btn btn-ghost btn-sm btn-del" id="bkDelBtn2">删除</button>
+          <button class="btn btn-ghost btn-sm" id="bkBackBtn">返回</button>
+          <button class="btn btn-primary btn-sm" id="bkSaveBtn">保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="app.js"></script>
   <script src="site.js"></script>
   <script src="cloud.js"></script>
@@ -65,7 +97,6 @@
           '<div class="head"><h3>' + App.escapeHtml(r.title || '（无标题）') + '</h3>' +
           '<span class="when">' + App.escapeHtml(App.fmtDate(r.created_at)) + '</span></div>' +
           (r.note ? '<div class="body">' + App.escapeHtml(r.note) + '</div>' : '') +
-          '<div class="ops"><button data-del="' + r.id + '">删除</button></div>' +
           '</article>';
       }).join('');
       renderOverview(items);
@@ -108,12 +139,9 @@
     });
 
     App.$('list').addEventListener('click', function (e) {
-      var id = e.target.getAttribute('data-del');
-      if (!id) return;
-      list = list.filter(function (r) { return r.id !== id; });
-      save(list);
-      render();
-      App.toast('已删除');
+      var card = e.target.closest('.item');
+      if (!card) return;
+      bkShowView(card.id.replace('item-', ''));
     });
 
     App.$('ovList').addEventListener('click', function (e) {
@@ -128,6 +156,49 @@
       }
     });
     App.on('ovHead', 'click', function () { App.$('ov').classList.toggle('collapsed'); });
+
+    // ===== 查看 / 编辑（仿日历弹层）=====
+    var editId = '';
+    function bkFind(id) { for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i]; return null; }
+    function bkShowView(id) {
+      var rec = bkFind(id); if (!rec) return; editId = id;
+      App.$('bkTitle').textContent = rec.title || '（无标题）';
+      App.$('bkViewCat').textContent = (rec.cat || '') + ' · 这本';
+      App.$('bkViewText').textContent = rec.note || '（没有写笔记）';
+      App.$('bkViewBox').style.display = ''; App.$('bkEditBox').style.display = 'none';
+      App.$('bkModal').classList.add('show');
+    }
+    function bkShowEdit(id) {
+      var rec = bkFind(id); if (!rec) return; editId = id;
+      App.$('bkTitle').textContent = rec.title || '（无标题）';
+      App.$('bkName').value = rec.title || '';
+      App.$('bkCat').value = rec.cat || '严肃文学';
+      App.$('bkNote').value = rec.note || '';
+      App.$('bkEditBox').style.display = ''; App.$('bkViewBox').style.display = 'none';
+      App.$('bkModal').classList.add('show'); App.$('bkName').focus();
+    }
+    function bkClose() { App.$('bkModal').classList.remove('show'); editId = ''; }
+    function bkSave() {
+      if (!editId) return; var rec = bkFind(editId); if (!rec) return;
+      var title = App.$('bkName').value.trim();
+      var note = App.$('bkNote').value.trim();
+      if (!title && !note) { App.toast('书名和笔记都空着呢', 'err'); return; }
+      rec.title = title; rec.note = note; rec.cat = App.$('bkCat').value;
+      save(list); bkClose(); render(); App.toast('已保存');
+    }
+    function bkDel() {
+      if (!editId) return;
+      list = list.filter(function (r) { return r.id !== editId; });
+      save(list); bkClose(); render(); App.toast('已删除', 'err');
+    }
+    App.on('bkEditBtn', 'click', function () { if (editId) bkShowEdit(editId); });
+    App.on('bkCloseBtn', 'click', bkClose);
+    App.on('bkBackBtn', 'click', function () { if (editId) bkShowView(editId); });
+    App.on('bkSaveBtn', 'click', bkSave);
+    App.on('bkDelBtn', 'click', bkDel);
+    App.on('bkDelBtn2', 'click', bkDel);
+    App.on('bkModal', 'click', function (e) { if (e.target === this) bkClose(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') bkClose(); });
 
     App.loadList(KIND, seed).then(function (d) { list = d || []; render(); });
   })();

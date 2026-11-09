@@ -549,6 +549,8 @@ img { max-width: 100%; display: block; }
   border-color: var(--accent);
   transition: box-shadow .25s ease, border-color .25s ease;
 }
+.item { cursor: pointer; transition: box-shadow .18s ease; }
+.item:hover { box-shadow: 0 6px 18px rgba(0,0,0,.08); }
 
 /* ===== 日历 ===== */
   .cal-wrap {
@@ -690,7 +692,6 @@ img { max-width: 100%; display: block; }
     display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 13px; }
   .movie { cursor: pointer; }
   .movie:hover { box-shadow: 0 6px 18px rgba(0,0,0,.10); }
-}
 
 /* ===== 日历小屏微调 ===== */
 @media (max-width: 560px) {
